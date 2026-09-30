@@ -4,3 +4,4 @@ This FiveM Script can Update Automaticly your ingame group from your Discord Ser
 
 Only ESX
 
+This Script is Use for Scarface City and Riviera City
