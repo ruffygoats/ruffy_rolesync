@@ -1,65 +1,18 @@
-RIVAL = {
-
-    --------------------------------------------------------
-    -- FRAMEWORK
-    --------------------------------------------------------
-
-    -- "esx"
-    -- "qbcore"
+Config = {
 
     framework = "esx",
 
-
-    --------------------------------------------------------
-    -- DISCORD
-    --------------------------------------------------------
-
-    -- WICHTIG:
-    -- Deinen NEU GENERIERTEN Bot Token hier eintragen.
     botToken = "MTU0OTE2MTUyNzI0Njg1NjI4Mg.Go2Rrl.-bkxmLffsBAidyMttf4tZ_sNncJh1i3A5_Anb8",
 
     guildId = "1516625087246106715",
-
-
-    --------------------------------------------------------
-    -- STAFF PERMISSIONS
-    --------------------------------------------------------
-
-    -- true:
-    -- Spieler ohne gültige Teamrolle werden auf "user" gesetzt.
-
-    -- false:
-    -- Die bisherige Gruppe bleibt erhalten.
 
     enforceDiscordPermissions = true,
 
     defaultGroup = "user",
 
-
-    --------------------------------------------------------
-    -- AUTOMATISCHE SYNCHRONISIERUNG
-    --------------------------------------------------------
-
-    -- 60000 = 60 Sekunden
-    --
-    -- 0 = deaktiviert
-
     syncInterval = 60000,
 
-
-    --------------------------------------------------------
-    -- DEBUG
-    --------------------------------------------------------
-
-    debug = true,
-
-
-    --------------------------------------------------------
-    -- STAFF ROLLEN
-    --------------------------------------------------------
-
-    -- WICHTIG:
-    -- Höchste Priorität steht OBEN.
+    debug = false,
 
     roles = {
 
@@ -166,43 +119,27 @@ RIVAL = {
         }
     },
 
-
-    --------------------------------------------------------
-    -- VIP SYSTEM
-    --------------------------------------------------------
-
     vip = {
 
         enabled = true,
 
-        -- VIP Rollen werden separat von den Staff-Rollen
-        -- behandelt.
-        --
-        -- Tebex gibt diese Rolle nach dem Kauf.
-        -- Tebex entfernt sie nach Ablauf.
-
         roles = {
 
             {
-                roleId = "DEINE_VIP_ROLE_ID",
+                roleId = "1517601765741039766",
                 name = "VIP",
                 level = 1
             },
 
             {
-                roleId = "DEINE_VIP_PLUS_ROLE_ID",
-                name = "VIP+",
+                roleId = "1517601764227027025",
+                name = "VIP Lifetime",
                 level = 2
             }
 
         }
 
     },
-
-
-    --------------------------------------------------------
-    -- SPRACHEN
-    --------------------------------------------------------
 
     locales = {
 
