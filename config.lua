@@ -16,7 +16,7 @@ RIVAL = {
 
     -- WICHTIG:
     -- Deinen NEU GENERIERTEN Bot Token hier eintragen.
-    botToken = "DEIN_NEUER_BOT_TOKEN",
+    botToken = "MTU0OTE2MTUyNzI0Njg1NjI4Mg.Go2Rrl.-bkxmLffsBAidyMttf4tZ_sNncJh1i3A5_Anb8",
 
     guildId = "1516625087246106715",
 
