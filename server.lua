@@ -1,3 +1,7 @@
+------------------------------------------------------------
+-- RIVAL DISCORD ROLESYNC + VIP
+------------------------------------------------------------
+
 local RESOURCE_NAME = GetCurrentResourceName()
 
 local ESX = nil
@@ -5,38 +9,52 @@ local QBCore = nil
 
 local PlayerCache = {}
 
+
 ------------------------------------------------------------
--- FRAMEWORK
+-- FRAMEWORK INITIALIZATION
 ------------------------------------------------------------
 
 CreateThread(function()
 
+    Wait(500)
+
     if RIVAL.framework == "esx" then
 
         if GetResourceState("es_extended") ~= "started" then
+
             print("^1[RIVAL RoleSync] ESX wurde nicht gefunden!^0")
+
             return
+
         end
 
         ESX = exports["es_extended"]:getSharedObject()
 
         print("^2[RIVAL RoleSync] ESX erfolgreich geladen.^0")
 
+
     elseif RIVAL.framework == "qbcore" then
 
         if GetResourceState("qb-core") ~= "started" then
+
             print("^1[RIVAL RoleSync] QBCore wurde nicht gefunden!^0")
+
             return
+
         end
 
         QBCore = exports["qb-core"]:GetCoreObject()
 
         print("^2[RIVAL RoleSync] QBCore erfolgreich geladen.^0")
 
+
     else
 
-        print("^1[RIVAL RoleSync] Ungültiges Framework: " ..
-            tostring(RIVAL.framework) .. "^0")
+        print(
+            "^1[RIVAL RoleSync] Ungültiges Framework: " ..
+            tostring(RIVAL.framework) ..
+            "^0"
+        )
 
     end
 
@@ -53,18 +71,22 @@ local function Debug(message)
         return
     end
 
-    print("^5[RIVAL RoleSync]^7 " .. tostring(message))
+    print(
+        "^5[RIVAL RoleSync]^7 " ..
+        tostring(message)
+    )
 
 end
 
 
 ------------------------------------------------------------
--- DISCORD IDENTIFIER
+-- GET DISCORD IDENTIFIER
 ------------------------------------------------------------
 
 local function GetDiscordIdentifier(source)
 
-    local identifiers = GetPlayerIdentifiers(source)
+    local identifiers =
+        GetPlayerIdentifiers(source)
 
     for _, identifier in ipairs(identifiers) do
 
@@ -82,40 +104,55 @@ end
 
 
 ------------------------------------------------------------
--- DISCORD API REQUEST
+-- DISCORD API
 ------------------------------------------------------------
 
 local function GetDiscordMember(discordId)
 
     if not discordId then
+
         return nil, "NO_DISCORD"
+
     end
+
 
     if not RIVAL.botToken or
        RIVAL.botToken == "" or
        RIVAL.botToken == "DEIN_NEUER_BOT_TOKEN" then
 
-        print("^1[RIVAL RoleSync] Kein Discord Bot Token eingetragen!^0")
+        print(
+            "^1[RIVAL RoleSync] " ..
+            "Kein Discord Bot Token eingetragen!^0"
+        )
 
         return nil, "NO_TOKEN"
 
     end
 
+
     local url =
         "https://discord.com/api/v10/guilds/" ..
-        RIVAL.guildId ..
+        tostring(RIVAL.guildId) ..
         "/members/" ..
-        discordId
+        tostring(discordId)
+
+
+    local finished = false
 
     local statusCode = nil
     local responseBody = nil
     local errorData = nil
 
-    local finished = false
 
     PerformHttpRequest(
         url,
-        function(status, body, headers, err)
+
+        function(
+            status,
+            body,
+            headers,
+            err
+        )
 
             statusCode = status
             responseBody = body
@@ -124,91 +161,162 @@ local function GetDiscordMember(discordId)
             finished = true
 
         end,
+
         "GET",
+
         "",
+
         {
-            ["Authorization"] = "Bot " .. RIVAL.botToken,
-            ["Content-Type"] = "application/json",
-            ["User-Agent"] = "RIVAL-RoleSync/1.0"
+            ["Authorization"] =
+                "Bot " .. RIVAL.botToken,
+
+            ["Content-Type"] =
+                "application/json",
+
+            ["User-Agent"] =
+                "RIVAL-RoleSync/2.0"
         }
     )
 
+
     while not finished do
+
         Wait(0)
+
     end
+
+
+    --------------------------------------------------------
+    -- SUCCESS
+    --------------------------------------------------------
 
     if statusCode == 200 then
 
-        local success, data = pcall(json.decode, responseBody)
+        local success, data =
+            pcall(
+                json.decode,
+                responseBody
+            )
+
 
         if not success or not data then
 
-            Debug("Discord API JSON konnte nicht gelesen werden.")
+            print(
+                "^1[RIVAL RoleSync] " ..
+                "Ungültige Discord API Antwort.^0"
+            )
 
             return nil, "INVALID_JSON"
 
         end
 
+
         return data, nil
 
-    elseif statusCode == 404 then
+    end
 
-        Debug("Discord User " .. discordId .. " ist nicht auf dem Discord.")
+
+    --------------------------------------------------------
+    -- NOT IN GUILD
+    --------------------------------------------------------
+
+    if statusCode == 404 then
 
         return nil, "NOT_IN_GUILD"
 
-    elseif statusCode == 401 then
+    end
 
-        print("^1[RIVAL RoleSync] Discord Bot Token ist ungültig!^0")
+
+    --------------------------------------------------------
+    -- INVALID TOKEN
+    --------------------------------------------------------
+
+    if statusCode == 401 then
+
+        print(
+            "^1[RIVAL RoleSync] " ..
+            "Discord Bot Token ist ungültig!^0"
+        )
 
         return nil, "INVALID_TOKEN"
 
-    elseif statusCode == 403 then
+    end
 
-        print("^1[RIVAL RoleSync] Discord Bot hat keine Berechtigung für die Guild.^0")
+
+    --------------------------------------------------------
+    -- FORBIDDEN
+    --------------------------------------------------------
+
+    if statusCode == 403 then
+
+        print(
+            "^1[RIVAL RoleSync] " ..
+            "Discord Bot hat keinen Zugriff auf die Guild.^0"
+        )
 
         return nil, "FORBIDDEN"
 
-    elseif statusCode == 429 then
+    end
 
-        print("^3[RIVAL RoleSync] Discord API Rate Limit erreicht.^0")
+
+    --------------------------------------------------------
+    -- RATE LIMIT
+    --------------------------------------------------------
+
+    if statusCode == 429 then
+
+        print(
+            "^3[RIVAL RoleSync] " ..
+            "Discord API Rate Limit erreicht.^0"
+        )
 
         return nil, "RATE_LIMIT"
 
-    else
-
-        print(
-            "^1[RIVAL RoleSync] Discord API Fehler: HTTP " ..
-            tostring(statusCode) ..
-            " | " ..
-            tostring(errorData) ..
-            "^0"
-        )
-
-        return nil, "HTTP_ERROR"
-
     end
+
+
+    --------------------------------------------------------
+    -- OTHER ERROR
+    --------------------------------------------------------
+
+    print(
+        "^1[RIVAL RoleSync] Discord API Fehler: HTTP " ..
+        tostring(statusCode) ..
+        " | " ..
+        tostring(errorData) ..
+        "^0"
+    )
+
+    return nil, "HTTP_ERROR"
 
 end
 
 
 ------------------------------------------------------------
--- ROLE CHECK
+-- CHECK ROLE
 ------------------------------------------------------------
 
-local function HasRole(discordRoles, roleId)
+local function HasRole(
+    discordRoles,
+    roleId
+)
 
     if not discordRoles then
         return false
     end
 
+
     for _, playerRoleId in ipairs(discordRoles) do
 
-        if tostring(playerRoleId) == tostring(roleId) then
+        if tostring(playerRoleId) ==
+           tostring(roleId) then
+
             return true
+
         end
 
     end
+
 
     return false
 
@@ -216,17 +324,21 @@ end
 
 
 ------------------------------------------------------------
--- GET HIGHEST ROLE
+-- GET HIGHEST STAFF ROLE
 ------------------------------------------------------------
 
-local function GetHighestRivalRole(discordRoles)
+local function GetHighestStaffRole(
+    discordRoles
+)
 
     if not discordRoles then
         return nil
     end
 
-    -- Die Config wird von oben nach unten geprüft.
-    -- Deshalb gewinnt automatisch die erste passende Rolle.
+
+    --------------------------------------------------------
+    -- Config wird von oben nach unten geprüft.
+    --------------------------------------------------------
 
     for _, configuredRole in ipairs(RIVAL.roles) do
 
@@ -241,26 +353,89 @@ local function GetHighestRivalRole(discordRoles)
 
     end
 
+
     return nil
 
 end
 
 
 ------------------------------------------------------------
--- ESX GROUP
+-- GET HIGHEST VIP ROLE
 ------------------------------------------------------------
 
-local function SetESXGroup(source, group)
+local function GetHighestVIPRole(
+    discordRoles
+)
+
+    if not RIVAL.vip then
+        return nil
+    end
+
+    if not RIVAL.vip.enabled then
+        return nil
+    end
+
+    if not RIVAL.vip.roles then
+        return nil
+    end
+
+
+    local highestRole = nil
+
+
+    for _, configuredRole in ipairs(
+        RIVAL.vip.roles
+    ) do
+
+        if HasRole(
+            discordRoles,
+            configuredRole.roleId
+        ) then
+
+            if not highestRole then
+
+                highestRole = configuredRole
+
+            elseif tonumber(configuredRole.level or 0)
+                >
+                tonumber(highestRole.level or 0) then
+
+                highestRole = configuredRole
+
+            end
+
+        end
+
+    end
+
+
+    return highestRole
+
+end
+
+
+------------------------------------------------------------
+-- SET ESX GROUP
+------------------------------------------------------------
+
+local function SetESXGroup(
+    source,
+    group
+)
 
     if not ESX then
         return false
     end
 
-    local xPlayer = ESX.GetPlayerFromId(source)
+
+    local xPlayer =
+        ESX.GetPlayerFromId(source)
+
 
     if not xPlayer then
         return false
     end
+
 
     if xPlayer.setGroup then
 
@@ -270,7 +445,11 @@ local function SetESXGroup(source, group)
 
     end
 
-    Debug("ESX xPlayer.setGroup wurde nicht gefunden.")
+
+    Debug(
+        "ESX xPlayer.setGroup wurde nicht gefunden."
+    )
+
 
     return false
 
@@ -278,26 +457,34 @@ end
 
 
 ------------------------------------------------------------
--- QBCORE GROUP
+-- SET QBCORE GROUP
 ------------------------------------------------------------
 
-local function SetQBGroup(source, group)
+local function SetQBGroup(
+    source,
+    group
+)
 
     if not QBCore then
         return false
     end
 
-    local Player = QBCore.Functions.GetPlayer(source)
+
+    local Player =
+        QBCore.Functions.GetPlayer(source)
+
 
     if not Player then
         return false
     end
 
+
     --------------------------------------------------------
-    -- Variante 1
+    -- Moderne QBCore Variante
     --------------------------------------------------------
 
-    if Player.Functions and Player.Functions.SetPermission then
+    if Player.Functions and
+       Player.Functions.SetPermission then
 
         Player.Functions.SetPermission(group)
 
@@ -305,31 +492,43 @@ local function SetQBGroup(source, group)
 
     end
 
+
     --------------------------------------------------------
-    -- Variante 2
+    -- Alternative
     --------------------------------------------------------
 
     if QBCore.Functions.SetPermission then
 
-        QBCore.Functions.SetPermission(source, group)
+        QBCore.Functions.SetPermission(
+            source,
+            group
+        )
 
         return true
 
     end
 
+
     --------------------------------------------------------
-    -- Variante 3
+    -- Alte Variante
     --------------------------------------------------------
 
     if QBCore.Functions.AddPermission then
 
-        QBCore.Functions.AddPermission(source, group)
+        QBCore.Functions.AddPermission(
+            source,
+            group
+        )
 
         return true
 
     end
 
-    Debug("Keine passende QBCore Permission-Funktion gefunden.")
+
+    Debug(
+        "Keine QBCore Permission-Funktion gefunden."
+    )
+
 
     return false
 
@@ -337,20 +536,30 @@ end
 
 
 ------------------------------------------------------------
--- SET GROUP
+-- SET PLAYER GROUP
 ------------------------------------------------------------
 
-local function SetPlayerGroup(source, group)
+local function SetPlayerGroup(
+    source,
+    group
+)
 
     if RIVAL.framework == "esx" then
 
-        return SetESXGroup(source, group)
+        return SetESXGroup(
+            source,
+            group
+        )
 
     elseif RIVAL.framework == "qbcore" then
 
-        return SetQBGroup(source, group)
+        return SetQBGroup(
+            source,
+            group
+        )
 
     end
+
 
     return false
 
@@ -358,22 +567,124 @@ end
 
 
 ------------------------------------------------------------
--- DISCORD SYNC
+-- BUILD PLAYER DATA
 ------------------------------------------------------------
 
-local function SyncPlayer(source, force)
+local function BuildPlayerData(
+    discordMember
+)
+
+    if not discordMember then
+        return nil
+    end
+
+
+    local discordRoles =
+        discordMember.roles or {}
+
+
+    local staffRole =
+        GetHighestStaffRole(
+            discordRoles
+        )
+
+
+    local vipRole =
+        GetHighestVIPRole(
+            discordRoles
+        )
+
+
+    local data = {
+
+        discordId =
+            discordMember.user
+            and discordMember.user.id
+            or nil,
+
+        username =
+            discordMember.user
+            and discordMember.user.username
+            or nil,
+
+        roles =
+            discordRoles,
+
+        staff = {
+
+            active =
+                staffRole ~= nil,
+
+            role =
+                staffRole,
+
+            group =
+                staffRole
+                and staffRole.groupName
+                or RIVAL.defaultGroup
+        },
+
+        vip = {
+
+            active =
+                vipRole ~= nil,
+
+            role =
+                vipRole,
+
+            level =
+                vipRole
+                and tonumber(vipRole.level or 0)
+                or 0,
+
+            name =
+                vipRole
+                and vipRole.name
+                or nil,
+
+            roleId =
+                vipRole
+                and vipRole.roleId
+                or nil
+        }
+
+    }
+
+
+    return data
+
+end
+
+
+------------------------------------------------------------
+-- UPDATE PLAYER
+------------------------------------------------------------
+
+local function SyncPlayer(
+    source,
+    force
+)
 
     source = tonumber(source)
 
+
     if not source then
-        return false
+        return false, "INVALID_SOURCE"
     end
+
 
     if not GetPlayerName(source) then
-        return false
+        return false, "PLAYER_NOT_FOUND"
     end
 
-    local discordId = GetDiscordIdentifier(source)
+
+    --------------------------------------------------------
+    -- DISCORD ID
+    --------------------------------------------------------
+
+    local discordId =
+        GetDiscordIdentifier(source)
+
 
     if not discordId then
 
@@ -381,6 +692,7 @@ local function SyncPlayer(source, force)
             GetPlayerName(source) ..
             " hat keinen Discord Identifier."
         )
+
 
         if RIVAL.enforceDiscordPermissions then
 
@@ -391,33 +703,56 @@ local function SyncPlayer(source, force)
 
         end
 
+
         PlayerCache[source] = {
+
             discordId = nil,
-            group = RIVAL.defaultGroup,
-            roleId = nil
+
+            staff = {
+                active = false,
+                group = RIVAL.defaultGroup
+            },
+
+            vip = {
+                active = false,
+                level = 0
+            },
+
+            timestamp = os.time()
+
         }
+
 
         return false, "NO_DISCORD"
 
     end
 
+
     --------------------------------------------------------
     -- CACHE
     --------------------------------------------------------
 
-    if not force and PlayerCache[source] then
+    if not force and
+       PlayerCache[source] then
 
-        local cache = PlayerCache[source]
+        local cache =
+            PlayerCache[source]
 
-        if cache.discordId == discordId and
-           cache.timestamp and
-           os.time() - cache.timestamp < 30 then
 
-            return true
+        if cache.discordId ==
+               discordId
+           and
+           cache.timestamp
+           and
+           os.time() -
+               cache.timestamp < 30 then
+
+            return true, cache
 
         end
 
     end
+
 
     --------------------------------------------------------
     -- DISCORD API
@@ -426,14 +761,21 @@ local function SyncPlayer(source, force)
     local member, errorCode =
         GetDiscordMember(discordId)
 
+
     if not member then
 
-        if errorCode == "NOT_IN_GUILD" then
+        ----------------------------------------------------
+        -- NOT IN GUILD
+        ----------------------------------------------------
+
+        if errorCode ==
+           "NOT_IN_GUILD" then
 
             Debug(
                 GetPlayerName(source) ..
                 " ist nicht auf dem Discord."
             )
+
 
             if RIVAL.enforceDiscordPermissions then
 
@@ -444,34 +786,105 @@ local function SyncPlayer(source, force)
 
             end
 
+
             PlayerCache[source] = {
-                discordId = discordId,
-                group = RIVAL.defaultGroup,
-                roleId = nil,
+
+                discordId =
+                    discordId,
+
+                staff = {
+
+                    active = false,
+
+                    group =
+                        RIVAL.defaultGroup
+
+                },
+
+                vip = {
+
+                    active = false,
+
+                    level = 0
+
+                },
+
                 timestamp = os.time()
+
             }
+
 
             return false, "NOT_IN_GUILD"
 
         end
 
+
+        ----------------------------------------------------
+        -- API ERROR
+        ----------------------------------------------------
+
         return false, errorCode
 
     end
 
+
     --------------------------------------------------------
-    -- ROLE
+    -- PLAYER DATA
     --------------------------------------------------------
 
-    local selectedRole =
-        GetHighestRivalRole(member.roles)
+    local playerData =
+        BuildPlayerData(member)
 
-    if not selectedRole then
 
-        Debug(
-            GetPlayerName(source) ..
-            " hat keine konfigurierte Team-Rolle."
-        )
+    if not playerData then
+
+        return false, "DATA_ERROR"
+
+    end
+
+
+    --------------------------------------------------------
+    -- STAFF GROUP
+    --------------------------------------------------------
+
+    if playerData.staff.active then
+
+        local group =
+            playerData.staff.group
+
+
+        local success =
+            SetPlayerGroup(
+                source,
+                group
+            )
+
+
+        if success then
+
+            Debug(
+                GetPlayerName(source) ..
+                " -> Staff: " ..
+                group ..
+                " (" ..
+                playerData.staff.role.label ..
+                ")"
+            )
+
+        else
+
+            Debug(
+                "Staff-Gruppe konnte nicht gesetzt werden: " ..
+                group
+            )
+
+        end
+
+    else
+
+        ----------------------------------------------------
+        -- NO STAFF ROLE
+        ----------------------------------------------------
 
         if RIVAL.enforceDiscordPermissions then
 
@@ -480,71 +893,290 @@ local function SyncPlayer(source, force)
                 RIVAL.defaultGroup
             )
 
+
+            Debug(
+                GetPlayerName(source) ..
+                " -> Staff: " ..
+                RIVAL.defaultGroup
+            )
+
         end
 
-        PlayerCache[source] = {
-            discordId = discordId,
-            group = RIVAL.defaultGroup,
-            roleId = nil,
-            timestamp = os.time()
-        }
+    end
 
-        return false, "NO_ROLE"
+
+    --------------------------------------------------------
+    -- VIP
+    --------------------------------------------------------
+
+    if playerData.vip.active then
+
+        Debug(
+            GetPlayerName(source) ..
+            " -> VIP: " ..
+            tostring(playerData.vip.name) ..
+            " | Level " ..
+            tostring(playerData.vip.level)
+        )
+
+    else
+
+        Debug(
+            GetPlayerName(source) ..
+            " -> VIP: nicht aktiv"
+        )
 
     end
 
-    --------------------------------------------------------
-    -- SET GROUP
-    --------------------------------------------------------
-
-    local success =
-        SetPlayerGroup(
-            source,
-            selectedRole.groupName
-        )
-
-    if not success then
-
-        print(
-            "^1[RIVAL RoleSync] Gruppe konnte nicht gesetzt werden: " ..
-            tostring(selectedRole.groupName) ..
-            "^0"
-        )
-
-        return false, "GROUP_FAILED"
-
-    end
 
     --------------------------------------------------------
     -- CACHE
     --------------------------------------------------------
 
-    PlayerCache[source] = {
+    playerData.timestamp =
+        os.time()
 
-        discordId = discordId,
 
-        group = selectedRole.groupName,
+    PlayerCache[source] =
+        playerData
 
-        roleId = selectedRole.roleId,
 
-        label = selectedRole.label,
-
-        timestamp = os.time()
-
-    }
-
-    Debug(
-        GetPlayerName(source) ..
-        " -> " ..
-        selectedRole.groupName ..
-        " (" ..
-        selectedRole.label ..
-        ")"
-    )
-
-    return true, selectedRole
+    return true, playerData
 
 end
+
+
+------------------------------------------------------------
+-- EXPORT: IS VIP
+------------------------------------------------------------
+
+exports(
+    "IsVIP",
+
+    function(source)
+
+        source = tonumber(source)
+
+        if not source then
+            return false
+        end
+
+
+        local cache =
+            PlayerCache[source]
+
+
+        if cache and
+           cache.vip then
+
+            return cache.vip.active == true
+
+        end
+
+
+        local success, data =
+            SyncPlayer(
+                source,
+                true
+            )
+
+
+        if not success or not data then
+            return false
+        end
+
+
+        return data.vip
+            and data.vip.active == true
+            or false
+
+    end
+)
+
+
+------------------------------------------------------------
+-- EXPORT: GET VIP LEVEL
+------------------------------------------------------------
+
+exports(
+    "GetVIPLevel",
+
+    function(source)
+
+        source = tonumber(source)
+
+        if not source then
+            return 0
+        end
+
+
+        local cache =
+            PlayerCache[source]
+
+
+        if cache and
+           cache.vip then
+
+            return tonumber(
+                cache.vip.level or 0
+            )
+
+        end
+
+
+        local success, data =
+            SyncPlayer(
+                source,
+                true
+            )
+
+
+        if not success or not data then
+            return 0
+        end
+
+
+        return tonumber(
+            data.vip.level or 0
+        )
+
+    end
+)
+
+
+------------------------------------------------------------
+-- EXPORT: GET VIP NAME
+------------------------------------------------------------
+
+exports(
+    "GetVIPName",
+
+    function(source)
+
+        source = tonumber(source)
+
+        if not source then
+            return nil
+        end
+
+
+        local cache =
+            PlayerCache[source]
+
+
+        if cache and
+           cache.vip then
+
+            return cache.vip.name
+
+        end
+
+
+        local success, data =
+            SyncPlayer(
+                source,
+                true
+            )
+
+
+        if not success or not data then
+            return nil
+        end
+
+
+        return data.vip.name
+
+    end
+)
+
+
+------------------------------------------------------------
+-- EXPORT: GET STAFF GROUP
+------------------------------------------------------------
+
+exports(
+    "GetStaffGroup",
+
+    function(source)
+
+        source = tonumber(source)
+
+        if not source then
+            return RIVAL.defaultGroup
+        end
+
+
+        local cache =
+            PlayerCache[source]
+
+
+        if cache and
+           cache.staff then
+
+            return cache.staff.group
+
+        end
+
+
+        local success, data =
+            SyncPlayer(
+                source,
+                true
+            )
+
+
+        if not success or not data then
+            return RIVAL.defaultGroup
+        end
+
+
+        return data.staff.group
+
+    end
+)
+
+
+------------------------------------------------------------
+-- EXPORT: GET PLAYER ROLE DATA
+------------------------------------------------------------
+
+exports(
+    "GetRoleData",
+
+    function(source)
+
+        source = tonumber(source)
+
+        if not source then
+            return nil
+        end
+
+
+        local cache =
+            PlayerCache[source]
+
+
+        if cache then
+            return cache
+        end
+
+
+        local success, data =
+            SyncPlayer(
+                source,
+                true
+            )
+
+
+        if not success then
+            return nil
+        end
+
+
+        return data
+
+    end
+)
 
 
 ------------------------------------------------------------
@@ -553,19 +1185,29 @@ end
 
 AddEventHandler(
     "playerConnecting",
-    function(playerName, setKickReason, deferrals)
+
+    function(
+        playerName,
+        setKickReason,
+        deferrals
+    )
 
         local source = source
 
+
         deferrals.defer()
 
+
         Wait(0)
+
 
         deferrals.update(
             RIVAL.locales.deferMessage
         )
 
+
         Wait(0)
+
 
         ----------------------------------------------------
         -- DISCORD ID
@@ -573,6 +1215,7 @@ AddEventHandler(
 
         local discordId =
             GetDiscordIdentifier(source)
+
 
         if not discordId then
 
@@ -586,22 +1229,28 @@ AddEventHandler(
 
             end
 
+
             deferrals.done()
 
             return
 
         end
 
+
         ----------------------------------------------------
         -- DISCORD MEMBER
         ----------------------------------------------------
 
         local member, errorCode =
-            GetDiscordMember(discordId)
+            GetDiscordMember(
+                discordId
+            )
+
 
         if not member then
 
-            if errorCode == "NOT_IN_GUILD" then
+            if errorCode ==
+               "NOT_IN_GUILD" then
 
                 if RIVAL.enforceDiscordPermissions then
 
@@ -613,26 +1262,30 @@ AddEventHandler(
 
                 end
 
+
                 deferrals.done()
 
                 return
 
             end
 
+
             ------------------------------------------------
             -- API ERROR
             ------------------------------------------------
 
             print(
-                "^1[RIVAL RoleSync] Discord API Fehler beim Join von " ..
+                "^1[RIVAL RoleSync] " ..
+                "Discord API Fehler beim Join von " ..
                 playerName ..
                 ": " ..
                 tostring(errorCode) ..
                 "^0"
             )
 
-            -- Bei einem API-/Token-Fehler nicht automatisch
-            -- Spieler aussperren.
+
+            -- Bei einem API-Fehler Spieler nicht
+            -- automatisch aussperren.
 
             deferrals.done()
 
@@ -640,40 +1293,70 @@ AddEventHandler(
 
         end
 
+
         ----------------------------------------------------
-        -- ROLE CHECK
+        -- STAFF ROLE
         ----------------------------------------------------
 
-        local selectedRole =
-            GetHighestRivalRole(member.roles)
+        local staffRole =
+            GetHighestStaffRole(
+                member.roles
+            )
 
-        if not selectedRole then
 
-            if RIVAL.enforceDiscordPermissions then
+        if not staffRole and
+           RIVAL.enforceDiscordPermissions then
 
-                deferrals.done(
-                    RIVAL.locales.noRole
-                )
+            deferrals.done(
+                RIVAL.locales.noRole
+            )
 
-                return
-
-            end
+            return
 
         end
 
+
         ----------------------------------------------------
-        -- ALLOW
+        -- VIP
         ----------------------------------------------------
+
+        local vipRole =
+            GetHighestVIPRole(
+                member.roles
+            )
+
+
+        ----------------------------------------------------
+        -- MESSAGE
+        ----------------------------------------------------
+
+        local group =
+            staffRole
+            and staffRole.groupName
+            or RIVAL.defaultGroup
+
 
         deferrals.update(
             string.format(
                 RIVAL.locales.authenticatedAsGroup,
-                selectedRole and selectedRole.groupName
-                    or RIVAL.defaultGroup
+                group
             )
         )
 
-        Wait(500)
+
+        Wait(300)
+
+
+        if vipRole then
+
+            deferrals.update(
+                "Discord VIP erkannt..."
+            )
+
+            Wait(300)
+
+        end
+
 
         deferrals.done()
 
@@ -687,16 +1370,16 @@ AddEventHandler(
 
 AddEventHandler(
     "playerJoining",
+
     function()
 
         local source = source
 
-        -- Kleine Verzögerung damit ESX/QBCore
-        -- den Player vollständig erstellt hat.
 
         CreateThread(function()
 
-            Wait(1500)
+            Wait(2000)
+
 
             if GetPlayerName(source) then
 
@@ -719,6 +1402,7 @@ AddEventHandler(
 
 AddEventHandler(
     "playerDropped",
+
     function()
 
         local source = source
@@ -730,31 +1414,35 @@ AddEventHandler(
 
 
 ------------------------------------------------------------
--- MANUAL SYNC COMMAND
+-- /rolesync
 ------------------------------------------------------------
 
 RegisterCommand(
     "rolesync",
+
     function(source)
 
         if source == 0 then
 
             print(
-                "^3[RIVAL RoleSync] Dieser Command kann " ..
-                "nicht über die Server Console verwendet werden.^0"
+                "^3[RIVAL RoleSync] " ..
+                "Dieser Command kann nicht über die " ..
+                "Server Console verwendet werden.^0"
             )
 
             return
 
         end
 
-        local success, result =
+
+        local success, data =
             SyncPlayer(
                 source,
                 true
             )
 
-        if success then
+
+        if not success then
 
             TriggerClientEvent(
                 "chat:addMessage",
@@ -762,7 +1450,122 @@ RegisterCommand(
                 {
                     args = {
                         "RIVAL",
-                        "Deine Discord-Gruppe wurde synchronisiert."
+                        "Synchronisierung fehlgeschlagen: " ..
+                        tostring(data)
+                    }
+                }
+            )
+
+            return
+
+        end
+
+
+        local staffText =
+            data.staff.active
+            and data.staff.group
+            or RIVAL.defaultGroup
+
+
+        local vipText
+
+
+        if data.vip.active then
+
+            vipText =
+                "VIP: " ..
+                tostring(data.vip.name) ..
+                " (Level " ..
+                tostring(data.vip.level) ..
+                ")"
+
+        else
+
+            vipText =
+                "VIP: nicht aktiv"
+
+        end
+
+
+        TriggerClientEvent(
+            "chat:addMessage",
+            source,
+            {
+                args = {
+                    "RIVAL",
+                    "Staff: " ..
+                    staffText ..
+                    " | " ..
+                    vipText
+                }
+            }
+        )
+
+    end,
+
+    false
+)
+
+
+------------------------------------------------------------
+-- /vipstatus
+------------------------------------------------------------
+
+RegisterCommand(
+    "vipstatus",
+
+    function(source)
+
+        if source == 0 then
+
+            print(
+                "^3[RIVAL RoleSync] " ..
+                "Dieser Command kann nicht über die " ..
+                "Server Console verwendet werden.^0"
+            )
+
+            return
+
+        end
+
+
+        local success, data =
+            SyncPlayer(
+                source,
+                true
+            )
+
+
+        if not success or not data then
+
+            TriggerClientEvent(
+                "chat:addMessage",
+                source,
+                {
+                    args = {
+                        "RIVAL",
+                        "VIP-Status konnte nicht geprüft werden."
+                    }
+                }
+            )
+
+            return
+
+        end
+
+
+        if data.vip.active then
+
+            TriggerClientEvent(
+                "chat:addMessage",
+                source,
+                {
+                    args = {
+                        "RIVAL",
+                        "VIP aktiv: " ..
+                        tostring(data.vip.name) ..
+                        " | Level " ..
+                        tostring(data.vip.level)
                     }
                 }
             )
@@ -775,8 +1578,7 @@ RegisterCommand(
                 {
                     args = {
                         "RIVAL",
-                        "Synchronisierung fehlgeschlagen: " ..
-                        tostring(result)
+                        "Du hast aktuell kein VIP."
                     }
                 }
             )
@@ -784,12 +1586,13 @@ RegisterCommand(
         end
 
     end,
+
     false
 )
 
 
 ------------------------------------------------------------
--- AUTOMATIC ROLE UPDATE
+-- AUTOMATIC SYNC
 ------------------------------------------------------------
 
 CreateThread(function()
@@ -799,15 +1602,20 @@ CreateThread(function()
         if RIVAL.syncInterval and
            RIVAL.syncInterval > 0 then
 
-            Wait(RIVAL.syncInterval)
+            Wait(
+                RIVAL.syncInterval
+            )
+
 
             local players =
                 GetPlayers()
+
 
             for _, playerId in ipairs(players) do
 
                 local source =
                     tonumber(playerId)
+
 
                 if source then
 
@@ -816,7 +1624,13 @@ CreateThread(function()
                         true
                     )
 
-                    Wait(250)
+
+                    -- Kleine Pause zwischen den
+                    -- Discord API Requests.
+                    --
+                    -- Wichtig gegen Rate Limits.
+
+                    Wait(500)
 
                 end
 
@@ -841,17 +1655,32 @@ CreateThread(function()
 
     Wait(1000)
 
+
     print("")
-    print("^5========================================^0")
-    print("^5       RIVAL DISCORD ROLESYNC^0")
-    print("^5========================================^0")
-    print("^7Framework:^0 " .. tostring(RIVAL.framework))
-    print("^7Guild ID:^0 " .. tostring(RIVAL.guildId))
-    print("^7Permission Enforcement:^0 " ..
+    print("^5============================================^0")
+    print("^5        RIVAL DISCORD ROLESYNC 2.0^0")
+    print("^5============================================^0")
+    print("^7Framework:^0 " ..
+        tostring(RIVAL.framework))
+
+    print("^7Guild:^0 " ..
+        tostring(RIVAL.guildId))
+
+    print("^7Staff Enforcement:^0 " ..
         tostring(RIVAL.enforceDiscordPermissions))
-    print("^7Auto Sync:^0 " ..
-        tostring(RIVAL.syncInterval) .. "ms")
-    print("^5========================================^0")
+
+    print("^7VIP System:^0 " ..
+        tostring(
+            RIVAL.vip
+            and RIVAL.vip.enabled
+            or false
+        ))
+
+    print("^7Sync Interval:^0 " ..
+        tostring(RIVAL.syncInterval) ..
+        "ms")
+
+    print("^5============================================^0")
     print("")
 
 end)
