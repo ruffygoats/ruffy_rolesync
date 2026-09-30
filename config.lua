@@ -2,9 +2,12 @@ Config = {
 
     framework = "esx",
 
-    botToken = "MTU0OTE2MTUyNzI0Njg1NjI4Mg.Go2Rrl.-bkxmLffsBAidyMttf4tZ_sNncJh1i3A5_Anb8",
-
-    guildId = "1516625087246106715",
+    botToken = "YOUR_DISCORD_BOT_TOKEN", -- Discord Bot Token 
+    
+    -- Create your Discord Bot here: 
+    -- https://discord.com/developers/applications
+    
+    guildId = "YOUR_GUILD_ID", -- Discord Server ID
 
     enforceDiscordPermissions = true,
 
